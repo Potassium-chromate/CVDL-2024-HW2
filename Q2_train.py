@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+import torchvision.utils as vutils
 import torchvision.utils as utils
 import matplotlib.pyplot as plt
 import numpy as np
@@ -161,6 +162,21 @@ class GANTrainer:
         self.generate_and_save_images()
         self.save_model()
         self.plot_training_curves()
+        
+    def load_generator(self, model_path='generator_model.pth'):
+        """Load the saved Generator model weights"""
+        self.generator.load_state_dict(torch.load(model_path))
+        self.generator.eval()
+        
+    def generate_fake_image(self):
+        """Generate and plot a batch of images using the loaded Generator"""
+        noise = torch.randn(self.batch_size, self.z_dim, 1, 1, device=self.device)
+        with torch.no_grad():
+            fake_images = self.generator(noise).detach().cpu()
+            
+        img_grid = vutils.make_grid(fake_images, padding=2, normalize=True)
+        
+        return np.transpose(img_grid.numpy(), (1, 2, 0))
 
 if __name__ == "__main__":
     gan_trainer = GANTrainer(batch_size=64, z_dim=100, num_epochs=30, learning_rate=0.0002)
