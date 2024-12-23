@@ -1,13 +1,13 @@
 from torchvision.datasets import MNIST
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from Q2_train import GAN
+from Q2_train import GANTrainer
 import matplotlib.pyplot as plt
 import numpy as np
 
 class Q2:
     def __init__(self):
-        self.gan = GAN(batch_size=64, z_dim=100, epochs=30, lr=0.001)
+        self.gan = GANTrainer(batch_size=64, z_dim=100, num_epochs=50, learning_rate=0.0002)
     def show_training_original_image(self):
         # Define transforms
         transform = transforms.Compose([
@@ -26,12 +26,10 @@ class Q2:
         
         # Plot the images
         fig = plt.figure(figsize=(8, 8))
-        for i in range(64):  # 8x8 grid
+        for i in range(64):
             ax = fig.add_subplot(8, 8, i + 1)
             ax.imshow(images[i][0], cmap='gray')  # Convert tensor to image
             ax.axis('off')  # Turn off axis for individual images
-        
-        #plt.suptitle("Training Dataset (Original)", fontsize=20)
         
         # Adjust layout to remove space between subplots
         plt.subplots_adjust(wspace=0, hspace=0)  
@@ -62,9 +60,7 @@ class Q2:
             ax = fig.add_subplot(8, 8, i + 1)
             ax.imshow(images[i][0], cmap='gray')  # Convert tensor to image
             ax.axis('off')  # Turn off axis for individual images
-        
-        #plt.suptitle("Training Dataset (Augmented)", fontsize=20)
-        
+                
         # Adjust layout to remove space between subplots
         plt.subplots_adjust(wspace=0, hspace=0)  
         
@@ -72,8 +68,8 @@ class Q2:
         plt.show()
         
     def show_training_image(self):
-        original_path = "./Training_dataset_original.png"
-        augmented_path = "./Training_dataset_augmented.png"
+        original_path = "./pictures/Training_dataset_original.png"
+        augmented_path = "./pictures/Training_dataset_augmented.png"
 
         # Plot the two images side-by-side in a 1x2 layout
         fig, ax = plt.subplots(1, 2, figsize=(16, 8))
@@ -95,19 +91,19 @@ class Q2:
         plt.show()
 
     def show_model_structure(self):
-        print(self.gan.G)
+        print(self.gan.generator)
         print("\n\n")
-        print(self.gan.D)
+        print(self.gan.discriminator)
         
     def show_training_loss(self):
-        loss_path = "./GD_Loss.png"
+        loss_path = "./pictures/GD_Loss.png"
         loss_img = plt.imread(loss_path)
         plt.imshow(loss_img)
         plt.axis('off')
         plt.show()
     
     def inference(self):
-        self.gan.load_generator('generator.pth')
+        self.gan.load_generator('generator_model.pth')
         fake_images = self.gan.generate_fake_image()
     
         transform = transforms.Compose([
