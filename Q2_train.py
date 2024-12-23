@@ -1,203 +1,167 @@
 # -*- coding: utf-8 -*-
 import torch
-from torch import nn
-import numpy as np
-import torchvision.datasets as dset
-import torchvision.transforms as transforms
+import torch.nn as nn
 import torch.optim as optim
-import torchvision.utils as vutils
+import torchvision.datasets as datasets
+import torchvision.transforms as transforms
+import torchvision.utils as utils
 import matplotlib.pyplot as plt
+import numpy as np
 
+# Define the Discriminator model
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
-
-        self.main = nn.Sequential(
-            nn.Conv2d(1, 64, 4, 2, 1, bias=False),
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, 4, 2, 1, bias=False),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 256, 3, 2, 1, bias=False),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(256, 1, 4, 1, 0, bias=False),
+            nn.Conv2d(256, 1, kernel_size=4, stride=1, padding=0, bias=False),
             nn.Sigmoid()
         )
 
-    def forward(self, input):
-        return self.main(input)
+    def forward(self, x):
+        return self.model(x)
 
+# Define the Generator model
 class Generator(nn.Module):
-    def __init__(self, z_dim):
+    def __init__(self, latent_dim):
         super(Generator, self).__init__()
-
-        self.main = nn.Sequential(
-            nn.ConvTranspose2d(z_dim, 256, 4, 1, 0, bias=False),
+        self.model = nn.Sequential(
+            nn.ConvTranspose2d(latent_dim, 256, kernel_size=4, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
-            nn.ConvTranspose2d(256, 128, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
-            nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
-            nn.ConvTranspose2d(64, 1, 4, 2, 3, bias=False),
+            nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=3, bias=False),
             nn.Tanh()
         )
 
-    def forward(self, input):
-        return self.main(input)
+    def forward(self, z):
+        return self.model(z)
 
-class GAN:
-    def __init__(self, batch_size=64, z_dim=100, epochs=100, lr=0.001):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# Define the GAN class
+class GANTrainer:
+    def __init__(self, batch_size=64, z_dim=100, num_epochs=50, learning_rate=0.0002):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.z_dim = z_dim
-        self.epochs = epochs
-        self.lr = lr
-        self.G = Generator(self.z_dim).to(self.device)
-        self.D = Discriminator().to(self.device)
-        self.criterion = nn.BCELoss()
-        self.G_optimizer = optim.Adam(self.G.parameters(), lr=self.lr)
-        self.D_optimizer = optim.Adam(self.D.parameters(), lr=self.lr)
-        self.G_losses = []
-        self.D_losses = []
-        self.img_list = []
+        self.num_epochs = num_epochs
+        self.lr = learning_rate
 
-    def get_dataloader(self):
-        """Load the MNIST dataset and apply transformations"""
+        # Initialize the models
+        self.generator = Generator(z_dim).to(self.device)
+        self.discriminator = Discriminator().to(self.device)
+
+        # Define loss function and optimizers
+        self.loss_fn = nn.BCELoss()
+        self.g_optimizer = optim.Adam(self.generator.parameters(), lr=self.lr, betas=(0.5, 0.999))
+        self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=self.lr, betas=(0.5, 0.999))
+
+        # Track losses and images
+        self.g_losses = []
+        self.d_losses = []
+        self.generated_images = []
+
+    def load_data(self):
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.5,), std=(0.5,))
         ])
-        
-        train_set = dset.MNIST(root='./mnist_data/', train=True, transform=transform, download=True)
-        test_set = dset.MNIST(root='./mnist_data/', train=False, transform=transform, download=False)
+        dataset = datasets.MNIST(root="./data", train=True, transform=transform, download=True)
+        return torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        train_loader = torch.utils.data.DataLoader(
-            dataset=train_set,
-            batch_size=self.batch_size,
-            shuffle=True
-        )
-        test_loader = torch.utils.data.DataLoader(
-            dataset=test_set,
-            batch_size=self.batch_size,
-            shuffle=False        
-        )
+    def train_discriminator(self, real_images):
+        self.discriminator.zero_grad()
 
-        return train_loader, test_loader
+        # Real images
+        real_images = real_images.to(self.device)
+        real_labels = torch.ones(real_images.size(0), device=self.device)
+        real_preds = self.discriminator(real_images)
+        real_loss = self.loss_fn(real_preds.view(-1), real_labels)
+        real_loss.backward()
 
-    def D_train(self, x):
-        """Train the Discriminator with real and fake images"""
-        self.D.zero_grad()
-        
-        # Train on real images
-        x_real = x.to(self.device)
-        y_real = torch.ones(self.batch_size,).to(self.device)
-        x_real_predict = self.D(x_real)
-        D_real_loss = self.criterion(x_real_predict.view(-1), y_real)
-        D_real_loss.backward()
+        # Fake images
+        noise = torch.randn(real_images.size(0), self.z_dim, 1, 1, device=self.device)
+        fake_images = self.generator(noise)
+        fake_labels = torch.zeros(real_images.size(0), device=self.device)
+        fake_preds = self.discriminator(fake_images.detach())
+        fake_loss = self.loss_fn(fake_preds.view(-1), fake_labels)
+        fake_loss.backward()
 
-        # Train on fake images
-        noise = torch.randn(self.batch_size, self.z_dim, 1, 1, device=self.device)
-        y_fake = torch.zeros(self.batch_size,).to(self.device)
-        x_fake = self.G(noise)
-        x_fake_predict = self.D(x_fake)
-        D_fake_loss = self.criterion(x_fake_predict.view(-1), y_fake)
-        D_fake_loss.backward()
+        self.d_optimizer.step()
 
-        # Total loss and update
-        D_total_loss = D_real_loss + D_fake_loss
-        self.D_optimizer.step()
+        return real_loss.item() + fake_loss.item()
 
-        return D_total_loss.item()
-
-    def G_train(self):
-        """Train the Generator to fool the Discriminator"""
-        self.G.zero_grad()
+    def train_generator(self):
+        self.generator.zero_grad()
 
         noise = torch.randn(self.batch_size, self.z_dim, 1, 1, device=self.device)
-        y_target = torch.ones(self.batch_size,).to(self.device)
-        x_fake = self.G(noise)
-        y_fake = self.D(x_fake)
-        G_loss = self.criterion(y_fake.view(-1), y_target)
-        G_loss.backward()
-        self.G_optimizer.step()
+        fake_images = self.generator(noise)
+        target_labels = torch.ones(self.batch_size, device=self.device)
+        fake_preds = self.discriminator(fake_images)
+        g_loss = self.loss_fn(fake_preds.view(-1), target_labels)
+        g_loss.backward()
 
-        return G_loss.item()
+        self.g_optimizer.step()
 
-    def Draw_plot(self):
-        """Plot the training loss curves for Generator and Discriminator"""
-        plt.figure()
-        plt.title("D Loss, G Loss / Iteration")
-        plt.plot(self.G_losses, label='G')
-        plt.plot(self.D_losses, label='D')
-        plt.xlabel("Iteration")
+        return g_loss.item()
+
+    def plot_training_curves(self):
+        plt.figure(figsize=(10, 5))
+        plt.title("Loss Trends for Generator and Discriminator")
+        plt.plot(self.g_losses, label="Generator Loss")
+        plt.plot(self.d_losses, label="Discriminator Loss")
+        plt.xlabel("Iterations")
         plt.ylabel("Loss")
         plt.legend()
         plt.show()
-    
-    def plot_last_image(self, img):
-        # Plot the image
-        plt.figure(figsize=(8, 8))
-        plt.imshow(np.transpose(img.cpu(), (1, 2, 0)))  # Convert from Tensor to NumPy
-        plt.axis('off')  # Hide axes
-        plt.show()
 
-    def save_generator(self, model_path='generator.pth'):
-        """Save the Generator model weights"""
-        torch.save(self.G.state_dict(), model_path)
+    def save_model(self, file_path="generator_model.pth"):
+        torch.save(self.generator.state_dict(), file_path)
 
-    def load_generator(self, model_path='generator.pth'):
-        """Load the saved Generator model weights"""
-        self.G.load_state_dict(torch.load(model_path))
-        self.G.eval()  # Set the model to evaluation mode
-
-    def generate_fake_image(self):
-        """Generate and plot a batch of images using the loaded Generator"""
+    def generate_and_save_images(self):
         noise = torch.randn(self.batch_size, self.z_dim, 1, 1, device=self.device)
         with torch.no_grad():
-            fake_images = self.G(noise).detach().cpu()
-            
-        img_grid = vutils.make_grid(fake_images, padding=2, normalize=True)
-        
-        return np.transpose(img_grid.numpy(), (1, 2, 0))
-        
-    def Train(self):
-        """Main training loop for GAN"""
-        print("\nStarting GAN training...")
-        if self.device.type == 'cuda':
-            print(f"Using {torch.cuda.get_device_name(0)}\n")
-        else:
-            print("Using CPU\n")
-        
-        train_loader, test_loader = self.get_dataloader()
+            fake_images = self.generator(noise).detach().cpu()
+        image_grid = utils.make_grid(fake_images, padding=2, normalize=True)
+        plt.figure(figsize=(8, 8))
+        plt.imshow(np.transpose(image_grid.numpy(), (1, 2, 0)))
+        plt.axis("off")
+        plt.show()
 
-        for epoch in range(self.epochs):
-            for id, (train_x, _) in enumerate(train_loader):
-                if len(train_x) == 64:  # Ensure correct batch size
-                    self.D_losses.append(self.D_train(train_x))
-                    self.G_losses.append(self.G_train())
+    def train(self):
+        print(f"Training on {self.device}...")
+        dataloader = self.load_data()
 
-                    if id % 50 == 0:
-                        print(f'[{epoch+1}/{self.epochs}]\t[{id}/{len(train_loader)}]\t Loss D: {np.mean(self.D_losses):.4f} \tLoss G: {np.mean(self.G_losses):.4f}')
+        for epoch in range(self.num_epochs):
+            for batch_idx, (real_images, _) in enumerate(dataloader):
+                if real_images.size(0) != self.batch_size:
+                    continue
 
-                    # Save generated image every 10 iterations
-                    if id % 10 == 0:
-                        with torch.no_grad():
-                            noise = torch.randn(self.batch_size, self.z_dim, 1, 1, device=self.device)
-                            fake = self.G(noise).detach().cpu()
-                        self.img_list.append(vutils.make_grid(fake, padding=0, normalize=True))
+                d_loss = self.train_discriminator(real_images)
+                g_loss = self.train_generator()
 
-        self.save_generator()  # Save the Generator after training
-        self.Draw_plot()
-        self.plot_last_image(self.img_list[-1])
+                self.d_losses.append(d_loss)
+                self.g_losses.append(g_loss)
 
-if __name__ == '__main__':
-    # Run GAN training with specified parameters
-    train = GAN(batch_size=64, z_dim=100, epochs=30, lr=0.001)
-    #train.Train()
-    #trained_gan = GAN(batch_size=64, z_dim=100, epochs=30, lr=0.001)
-    #trained_gan.load_generator('generator.pth')
-    #fake_images = trained_gan.plot_batch()
+                if batch_idx % 50 == 0:
+                    print(f"Epoch [{epoch + 1}/{self.num_epochs}] Batch [{batch_idx}/{len(dataloader)}]"
+                          f"  D Loss: {d_loss:.4f}  G Loss: {g_loss:.4f}")
+
+        self.generate_and_save_images()
+        self.save_model()
+        self.plot_training_curves()
+
+if __name__ == "__main__":
+    gan_trainer = GANTrainer(batch_size=64, z_dim=100, num_epochs=30, learning_rate=0.0002)
+    gan_trainer.train()
