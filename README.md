@@ -20,4 +20,32 @@ Provides the implementation of functions corresponding to the actions performed 
 - `Q2_train.py`:
 Script for training the Conditional GAN (CuGAN) on the MNIST dataset and saving the trained weights.
 
-## Usage
+## Usage Instructions
+1. Generate VGG19 Weights for CIFAR-10 Classification
+    - Run `Q1_train.py` to train the VGG19 model on the CIFAR-10 dataset.
+    - This will save the trained model weights as `vgg19_cifar10.pth`.
+2. Perform Tasks for the First Part of the Homework
+    - Run `Q1.py` to load the user interface for the first part.
+    - Use the interface to:
+      - Load and augment images.
+      - Display the VGG19 model structure.
+      - View accuracy and loss curves.
+      - Perform inference using the trained VGG19 model.
+3. Generate GAN Weights for MNIST Generation
+    - Run `Q2_train.py` to train the Conditional GAN (CuGAN) on the MNIST dataset.
+    - This will save the trained generator model weights as `generator.pth`.
+4. Perform Tasks for the Second Part of the Homework
+    - Run `Q2.py` to load the user interface for the second part.
+    - Use the interface to:
+      - Visualize the process of generating MNIST-like images.
+      - Interact with the GAN-based model for dataset augmentation.
+      
+## Dependencies
+- Python 3.9.19
+- numpy 1.23.5
+- PyQt5 5.15.10
+- torch 2.5.1
+- torchaudio 2.5.1
+- torchsummary 1.5.1
+- torchvision 0.20.1
+- tqdm 4.67.1
