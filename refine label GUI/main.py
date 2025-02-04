@@ -170,41 +170,49 @@ class LabelRefinerApp(tk.Tk):
         if self.lib.unmatched_algo_idx and self.lib.algo_label:
             for algo_idx in self.lib.unmatched_algo_idx:
                 row_frame = tk.Frame(self.algo_checkbox_frame)
-                row_frame.pack(anchor="w")
+                row_frame.pack(fill="x", anchor="w")
+                
+                row_frame.grid_columnconfigure(0, weight=1, uniform="group1")  
+                row_frame.grid_columnconfigure(1, weight=0)
+                row_frame.grid_columnconfigure(2, weight=0)
                 
                 text = str([int(round(x)) for x in self.lib.algo_label[algo_idx]])
                 label = tk.Label(row_frame, text=text, font=("Arial", 10))
-                label.pack(side="left", padx=5)
+                label.grid(row=0, column=0, sticky="w", padx=5)
     
                 var_save = tk.BooleanVar()
                 var_show = tk.BooleanVar()
                 self.algo_checkbox_vars.append((var_save, var_show))
     
                 save_cb = tk.Checkbutton(row_frame, text="Save", variable=var_save)
-                save_cb.pack(side="left", padx=5)
+                save_cb.grid(row=0, column=1, sticky="e", padx=5)
     
                 show_cb = tk.Checkbutton(row_frame, text="Show", variable=var_show)
-                show_cb.pack(side="left", padx=5)
+                show_cb.grid(row=0, column=2, sticky="e", padx=5)
         
         #Show the points that are unmatched in model
         if self.lib.unmatched_model_idx and self.lib.model_label:
             for model_idx in self.lib.unmatched_model_idx:
                 row_frame = tk.Frame(self.model_checkbox_frame)
-                row_frame.pack(anchor="w")
+                row_frame.pack(fill="x", anchor="w")
+                
+                row_frame.grid_columnconfigure(0, weight=1, uniform="group1")  
+                row_frame.grid_columnconfigure(1, weight=0)
+                row_frame.grid_columnconfigure(2, weight=0)
                 
                 text = str([int(round(x)) for x in self.lib.model_label[model_idx]])
                 label = tk.Label(row_frame, text=text, font=("Arial", 10))
-                label.pack(side="left", padx=5)
+                label.grid(row=0, column=0, sticky="w", padx=5)
     
                 var_save = tk.BooleanVar()
                 var_show = tk.BooleanVar()
                 self.model_checkbox_vars.append((var_save, var_show))
     
                 save_cb = tk.Checkbutton(row_frame, text="Save", variable=var_save)
-                save_cb.pack(side="left", padx=5)
+                save_cb.grid(row=0, column=1, sticky="e", padx=5)
     
                 show_cb = tk.Checkbutton(row_frame, text="Show", variable=var_show)
-                show_cb.pack(side="left", padx=5)
+                show_cb.grid(row=0, column=2, sticky="e", padx=5)
                 
         self.algo_checkbox_frame.update_idletasks()
         algo_diff_canvas.config(scrollregion=algo_diff_canvas.bbox("all"))
